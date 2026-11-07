@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TicTac - Play & Earn</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- 1. LOGIN SCREEN -->
+  <div id="login-screen" class="screen">
+    <div class="auth-card">
+      <div class="logo-badge">X / O</div>
+      <h1>TicTac Rewards</h1>
+      <p>Play Tic Tac Toe, complete 100 matches & earn real cash rewards!</p>
+      <button id="google-login-btn" class="primary-btn">
+        Sign in with Google
+      </button>
+    </div>
+  </div>
+
+  <!-- 2. MAIN GAME DASHBOARD -->
+  <div id="app-screen" class="screen hidden">
+    <!-- Top Header -->
+    <header class="top-bar">
+      <div class="user-info">
+        <span id="user-name">Player</span>
+        <button id="logout-btn" class="text-btn">Logout</button>
+      </div>
+      <div class="wallet-box">
+        <div class="balance-info">
+          <span class="label">Wallet</span>
+          <span class="amount">₹<span id="wallet-balance">0</span></span>
+        </div>
+        <button id="open-withdraw-btn" class="withdraw-btn">Withdraw</button>
+      </div>
+    </header>
+
+    <main class="main-container">
+      <!-- Task Card (Auto Resets on Claim) -->
+      <section class="task-card" id="task-card">
+        <div class="task-header">
+          <div>
+            <span class="task-badge" id="task-level-badge">Task #1</span>
+            <h3>Complete 100 Matches</h3>
+          </div>
+          <div class="reward-tag">Reward: ₹5</div>
+        </div>
+
+        <div class="progress-wrapper">
+          <div class="progress-labels">
+            <span>Progress</span>
+            <span><strong id="task-progress-text">0</strong> / 100 Matches</span>
+          </div>
+          <div class="progress-bar-bg">
+            <div id="task-progress-fill" class="progress-bar-fill"></div>
+          </div>
+        </div>
+
+        <button id="claim-reward-btn" class="claim-btn" disabled>
+          Play 100 Matches to Claim ₹5
+        </button>
+      </section>
+
+      <!-- Game Section -->
+      <section class="game-section">
+        <div class="status-bar">
+          <span id="game-status">Click "Start New Match" to play</span>
+        </div>
+
+        <div class="board" id="board">
+          <div class="cell" data-index="0"></div>
+          <div class="cell" data-index="1"></div>
+          <div class="cell" data-index="2"></div>
+          <div class="cell" data-index="3"></div>
+          <div class="cell" data-index="4"></div>
+          <div class="cell" data-index="5"></div>
+          <div class="cell" data-index="6"></div>
+          <div class="cell" data-index="7"></div>
+          <div class="cell" data-index="8"></div>
+        </div>
+
+        <button id="start-match-btn" class="primary-btn full-width">
+          Start New Match (Watch Ad)
+        </button>
+      </section>
+    </main>
+  </div>
+
+  <!-- 3. AD OVERLAY MODAL (Har New Game start hone par aayega) -->
+  <div id="ad-modal" class="modal hidden">
+    <div class="modal-content ad-box">
+      <div class="ad-top-bar">
+        <span>Sponsored Ad</span>
+        <span id="ad-timer-badge">Wait 5s...</span>
+      </div>
+
+      <!-- Yahan aap apna AdSense / Adsterra / Monetag ka code laga sakte hain -->
+      <div id="ad-slot" class="ad-placeholder">
+        <p>Your Ad Network Code Goes Here</p>
+        <small>(300x250 Banner / Video Ad)</small>
+      </div>
+
+      <button id="skip-ad-btn" class="primary-btn full-width" disabled>
+        Loading Match in 5s...
+      </button>
+    </div>
+  </div>
+
+  <!-- 4. WITHDRAW MODAL (Min ₹10) -->
+  <div id="withdraw-modal" class="modal hidden">
+    <div class="modal-content">
+      <h3>Withdraw Earnings</h3>
+      <p class="sub-text">Minimum withdrawal amount is <strong>₹10</strong>.</p>
+      
+      <div class="withdraw-summary">
+        Available Balance: <strong>₹<span id="modal-balance">0</span></strong>
+      </div>
+
+      <input type="text" id="upi-input" placeholder="Enter your UPI ID (e.g. name@upi)" />
+      
+      <div class="modal-actions">
+        <button id="close-withdraw-btn" class="secondary-btn">Cancel</button>
+        <button id="submit-withdraw-btn" class="primary-btn">Request Withdraw</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification -->
+  <div id="toast" class="toast hidden"></div>
+
+  <!-- App Logic -->
+  <script type="module" src="app.js"></script>
+</body>
+</html>
