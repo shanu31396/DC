@@ -2,9 +2,9 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>TicTac - Play & Earn</title>
-  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="style.css?v=3" />
 </head>
 <body>
 
@@ -14,7 +14,7 @@
       <div class="logo-badge">X / O</div>
       <h1>TicTac Rewards</h1>
       <p>Play Tic Tac Toe, complete 100 matches & earn real cash rewards!</p>
-      <button id="google-login-btn" class="primary-btn">
+      <button id="google-login-btn" class="primary-btn full-width">
         Sign in with Google
       </button>
     </div>
@@ -24,9 +24,13 @@
   <div id="app-screen" class="screen hidden">
     <header class="top-bar">
       <div class="user-info">
-        <span id="user-name">Player</span>
-        <button id="logout-btn" class="text-btn">Logout</button>
+        <span id="user-name">Loading...</span>
+        <div class="uid-row">
+          <span id="user-uid-badge" class="uid-badge" title="Tap to copy UID">UID: -------- 📋</span>
+          <button id="logout-btn" class="text-btn">Logout</button>
+        </div>
       </div>
+
       <div class="wallet-box">
         <div class="balance-info">
           <span class="label">Wallet</span>
@@ -69,15 +73,15 @@
         </div>
 
         <div class="board" id="board">
-          <div class="cell" data-index="0"></div>
-          <div class="cell" data-index="1"></div>
-          <div class="cell" data-index="2"></div>
-          <div class="cell" data-index="3"></div>
-          <div class="cell" data-index="4"></div>
-          <div class="cell" data-index="5"></div>
-          <div class="cell" data-index="6"></div>
-          <div class="cell" data-index="7"></div>
-          <div class="cell" data-index="8"></div>
+          <div class="cell" data-index="0"><span></span></div>
+          <div class="cell" data-index="1"><span></span></div>
+          <div class="cell" data-index="2"><span></span></div>
+          <div class="cell" data-index="3"><span></span></div>
+          <div class="cell" data-index="4"><span></span></div>
+          <div class="cell" data-index="5"><span></span></div>
+          <div class="cell" data-index="6"><span></span></div>
+          <div class="cell" data-index="7"><span></span></div>
+          <div class="cell" data-index="8"><span></span></div>
         </div>
 
         <button id="start-match-btn" class="primary-btn full-width">
@@ -87,7 +91,28 @@
     </main>
   </div>
 
-  <!-- 3. AD OVERLAY MODAL -->
+  <!-- 3. UNIQUE USERNAME & UID SETUP MODAL (Free Fire / BGMI Style) -->
+  <div id="username-modal" class="modal hidden">
+    <div class="modal-content">
+      <h3>Create Gamer Profile</h3>
+      <p class="sub-text">Choose your unique username. Your Player UID is permanent.</p>
+
+      <div class="uid-preview-box">
+        <span>Your Unique Player UID:</span>
+        <strong id="generated-uid-text">Generating...</strong>
+      </div>
+
+      <label class="input-label">Unique Username (3-15 chars, letters/numbers/_)</label>
+      <input type="text" id="username-input" maxlength="15" placeholder="e.g. ShanuOP or suryam_07" />
+      <small id="username-error" class="error-hint"></small>
+
+      <button id="save-username-btn" class="primary-btn full-width">
+        Save Profile & Continue
+      </button>
+    </div>
+  </div>
+
+  <!-- 4. AD OVERLAY MODAL -->
   <div id="ad-modal" class="modal hidden">
     <div class="modal-content ad-box">
       <div class="ad-top-bar">
@@ -106,7 +131,7 @@
     </div>
   </div>
 
-  <!-- 4. WITHDRAW MODAL (Updated with Save UPI & Amount Box) -->
+  <!-- 5. WITHDRAW MODAL -->
   <div id="withdraw-modal" class="modal hidden">
     <div class="modal-content">
       <h3>Withdraw Earnings</h3>
@@ -116,7 +141,6 @@
         Available Balance: <strong>₹<span id="modal-balance">0</span></strong>
       </div>
 
-      <!-- UPI ID + Save Button -->
       <label class="input-label">Your UPI ID</label>
       <div class="upi-save-row">
         <input type="text" id="upi-input" placeholder="e.g. mobile@ybl or name@oksbi" />
@@ -124,7 +148,6 @@
       </div>
       <small id="upi-saved-status" class="saved-hint"></small>
 
-      <!-- Withdraw Amount Input -->
       <label class="input-label">Amount to Withdraw (₹)</label>
       <input type="number" id="withdraw-amount-input" min="10" step="1" placeholder="Enter amount (Min ₹10)" />
       
@@ -138,6 +161,6 @@
   <!-- Toast Notification -->
   <div id="toast" class="toast hidden"></div>
 
-  <script type="module" src="app.js"></script>
+  <script type="module" src="app.js?v=3"></script>
 </body>
 </html>

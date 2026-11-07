@@ -3,6 +3,8 @@ import {
   getAuth, 
   GoogleAuthProvider, 
   signInWithPopup, 
+  setPersistence,
+  browserLocalPersistence,
   onAuthStateChanged, 
   signOut 
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
@@ -20,22 +22,25 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 // =====================================================
-// 1. APNA FIREBASE CONFIG YAHAN PASTE KAREIN
+// 1. YOUR FIREBASE CONFIG (Pre-filled)
 // =====================================================
-  const firebaseConfig = {
-    apiKey: "AIzaSyA9XkZ8iRyjKETR0sCQ9pFtYjc1aIpszBE",
-    authDomain: "tictac-1st.firebaseapp.com",
-    projectId: "tictac-1st",
-    storageBucket: "tictac-1st.firebasestorage.app",
-    messagingSenderId: "621934319150",
-    appId: "1:621934319150:web:9c1dfa0a00d5ee99d731bf",
-    measurementId: "G-QBQH1QPZ18"
-  };
+const firebaseConfig = {
+  apiKey: "AIzaSyA9XkZ8iRyjKETR0sCQ9pFtYjc1aIpszBE",
+  authDomain: "tictac-1st.firebaseapp.com",
+  projectId: "tictac-1st",
+  storageBucket: "tictac-1st.firebasestorage.app",
+  messagingSenderId: "621934319150",
+  appId: "1:621934319150:web:9c1dfa0a00d5ee99d731bf",
+  measurementId: "G-QBQH1QPZ18"
+};
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 const provider = new GoogleAuthProvider();
+
+// Keep user logged in on Phone & PC browsers
+setPersistence(auth, browserLocalPersistence).catch(console.error);
 
 // DOM Elements
 const loginScreen = document.getElementById("login-screen");
@@ -43,8 +48,15 @@ const appScreen = document.getElementById("app-screen");
 const googleLoginBtn = document.getElementById("google-login-btn");
 const logoutBtn = document.getElementById("logout-btn");
 const userNameEl = document.getElementById("user-name");
+const userUidBadge = document.getElementById("user-uid-badge");
 const walletBalanceEl = document.getElementById("wallet-balance");
 const modalBalanceEl = document.getElementById("modal-balance");
+
+const usernameModal = document.getElementById("username-modal");
+const generatedUidText = document.getElementById("generated-uid-text");
+const usernameInput = document.getElementById("username-input");
+const usernameError = document.getElementById("username-error");
+const saveUsernameBtn = document.getElementById("save-username-btn");
 
 const taskLevelBadge = document.getElementById("task-level-badge");
 const taskProgressText = document.getElementById("task-progress-text");
@@ -72,6 +84,7 @@ const toastEl = document.getElementById("toast");
 let currentUser = null;
 let userData = null;
 let unsubscribeUser = null;
+let pendingCandidateUid = "";
 
 let boardState = Array(9).fill(null);
 let isGameActive = false;
@@ -92,10 +105,11 @@ function showToast(msg) {
 }
 
 // =====================================================
-// 2. AUTHENTICATION & REALTIME DATABASE SYNC
+// 2. AUTHENTICATION & PROFILE SYNC
 // =====================================================
 googleLoginBtn.addEventListener("click", async () => {
   try {
+    await setPersistence(auth, browserLocalPersistence);
     await signInWithPopup(auth, provider);
   } catch (err) {
     showToast("Login failed: " + err.message);
@@ -104,12 +118,19 @@ googleLoginBtn.addEventListener("click", async () => {
 
 logoutBtn.addEventListener("click", () => signOut(auth));
 
+// Copy Player UID on tap (Like BGMI / Free Fire)
+userUidBadge.addEventListener("click", () => {
+  if (userData && userData.playerUid) {
+    navigator.clipboard.writeText(userData.playerUid);
+    showToast(`UID ${userData.playerUid} Copied!`);
+  }
+});
+
 onAuthStateChanged(auth, async (user) => {
   if (user) {
     currentUser = user;
     loginScreen.classList.add("hidden");
     appScreen.classList.remove("hidden");
-    userNameEl.textContent = user.displayName || "Player";
 
     const userRef = doc(db, "users", user.uid);
     const snap = await getDoc(userRef);
@@ -118,6 +139,8 @@ onAuthStateChanged(auth, async (user) => {
       await setDoc(userRef, {
         name: user.displayName || "Player",
         email: user.email || "",
+        username: "",
+        playerUid: "",
         walletBalance: 0,
         currentTaskMatches: 0,
         totalMatches: 0,
@@ -128,10 +151,17 @@ onAuthStateChanged(auth, async (user) => {
     }
 
     if (unsubscribeUser) unsubscribeUser();
-    unsubscribeUser = onSnapshot(userRef, (docSnap) => {
+    unsubscribeUser = onSnapshot(userRef, async (docSnap) => {
       if (docSnap.exists()) {
         userData = docSnap.data();
         updateDashboardUI();
+
+        // Agar user ka unique username ya playerUid nahi bana hai, to modal dikhao
+        if (!userData.username || !userData.playerUid) {
+          await openUsernameSetupModal();
+        } else {
+          usernameModal.classList.add("hidden");
+        }
       }
     });
   } else {
@@ -139,7 +169,97 @@ onAuthStateChanged(auth, async (user) => {
     userData = null;
     if (unsubscribeUser) unsubscribeUser();
     appScreen.classList.add("hidden");
+    usernameModal.classList.add("hidden");
     loginScreen.classList.remove("hidden");
+  }
+});
+
+// =====================================================
+// 3. UNIQUE 8-DIGIT UID & USERNAME GENERATOR
+// =====================================================
+async function generateUnique8DigitUid() {
+  if (userData && userData.playerUid) return userData.playerUid;
+  if (pendingCandidateUid) return pendingCandidateUid;
+
+  while (true) {
+    // Generates an 8-digit UID (e.g. 10482951 to 99999999)
+    const candidate = String(Math.floor(10000000 + Math.random() * 90000000));
+    const uidSnap = await getDoc(doc(db, "uids", candidate));
+    if (!uidSnap.exists()) {
+      pendingCandidateUid = candidate;
+      return candidate;
+    }
+  }
+}
+
+async function openUsernameSetupModal() {
+  usernameModal.classList.remove("hidden");
+  const uid = await generateUnique8DigitUid();
+  generatedUidText.textContent = uid;
+}
+
+saveUsernameBtn.addEventListener("click", async () => {
+  const rawUsername = usernameInput.value.trim();
+  const lowerUsername = rawUsername.toLowerCase();
+  usernameError.textContent = "";
+
+  // Validation: 3-15 chars, letters, numbers, underscore only
+  const validRegex = /^[a-zA-Z0-9_]{3,15}$/;
+  if (!validRegex.test(rawUsername)) {
+    usernameError.textContent = "Use 3-15 characters (only letters, numbers & _)";
+    return;
+  }
+
+  saveUsernameBtn.disabled = true;
+  saveUsernameBtn.textContent = "Checking availability...";
+
+  try {
+    const usernameRef = doc(db, "usernames", lowerUsername);
+    const usernameSnap = await getDoc(usernameRef);
+
+    if (usernameSnap.exists()) {
+      usernameError.textContent = "❌ This username is already taken! Try another.";
+      saveUsernameBtn.disabled = false;
+      saveUsernameBtn.textContent = "Save Profile & Continue";
+      return;
+    }
+
+    const finalUid = await generateUnique8DigitUid();
+    const uidRef = doc(db, "uids", finalUid);
+    const userRef = doc(db, "users", currentUser.uid);
+
+    // 1. Reserve Unique Username
+    await setDoc(usernameRef, {
+      uid: currentUser.uid,
+      playerUid: finalUid,
+      username: rawUsername,
+      createdAt: serverTimestamp()
+    });
+
+    // 2. Reserve Unique 8-Digit Player UID (So you can search/target by UID anytime)
+    await setDoc(uidRef, {
+      uid: currentUser.uid,
+      playerUid: finalUid,
+      username: rawUsername,
+      email: currentUser.email || "",
+      createdAt: serverTimestamp()
+    });
+
+    // 3. Save in User Profile
+    await updateDoc(userRef, {
+      username: rawUsername,
+      playerUid: finalUid,
+      lastActionAt: serverTimestamp()
+    });
+
+    usernameModal.classList.add("hidden");
+    showToast(`Welcome ${rawUsername}! (UID: ${finalUid})`);
+  } catch (err) {
+    console.error(err);
+    usernameError.textContent = "Error saving profile: " + err.message;
+  } finally {
+    saveUsernameBtn.disabled = false;
+    saveUsernameBtn.textContent = "Save Profile & Continue";
   }
 });
 
@@ -149,6 +269,9 @@ function updateDashboardUI() {
   const balance = userData.walletBalance || 0;
   const progress = userData.currentTaskMatches || 0;
   const level = (userData.tasksCompleted || 0) + 1;
+
+  userNameEl.textContent = userData.username || userData.name || "Player";
+  userUidBadge.textContent = userData.playerUid ? `UID: ${userData.playerUid} 📋` : "UID: --------";
 
   walletBalanceEl.textContent = balance;
   modalBalanceEl.textContent = balance;
@@ -175,7 +298,7 @@ function updateDashboardUI() {
 }
 
 // =====================================================
-// 3. AD SYSTEM & NEW MATCH START
+// 4. AD SYSTEM & NEW MATCH START
 // =====================================================
 startMatchBtn.addEventListener("click", () => {
   if (isGameActive) return;
@@ -215,7 +338,7 @@ skipAdBtn.addEventListener("click", () => {
 });
 
 // =====================================================
-// 4. TIC TAC TOE ENGINE
+// 5. TIC TAC TOE ENGINE
 // =====================================================
 function beginTicTacToeMatch() {
   boardState = Array(9).fill(null);
@@ -225,8 +348,9 @@ function beginTicTacToeMatch() {
   matchStartTime = Date.now();
 
   cells.forEach(cell => {
-    cell.textContent = "";
     cell.className = "cell";
+    const span = cell.querySelector("span");
+    if (span) span.textContent = "";
   });
 
   startMatchBtn.disabled = true;
@@ -261,7 +385,8 @@ function makeMove(index, symbol) {
   boardState[index] = symbol;
   movesCount++;
   const cell = cells[index];
-  cell.textContent = symbol;
+  const span = cell.querySelector("span");
+  if (span) span.textContent = symbol;
   cell.classList.add(symbol.toLowerCase());
 }
 
@@ -336,7 +461,7 @@ async function finishMatch(statusText) {
 }
 
 // =====================================================
-// 5. TASK REWARD CLAIM & INSTANT RESET
+// 6. TASK REWARD CLAIM & INSTANT RESET
 // =====================================================
 claimRewardBtn.addEventListener("click", async () => {
   if (!userData || userData.currentTaskMatches < 100) return;
@@ -361,7 +486,7 @@ claimRewardBtn.addEventListener("click", async () => {
 });
 
 // =====================================================
-// 6. SAVE UPI ID & CUSTOM AMOUNT WITHDRAWAL
+// 7. SAVE UPI ID & CUSTOM AMOUNT WITHDRAWAL
 // =====================================================
 openWithdrawBtn.addEventListener("click", () => {
   if (userData && userData.savedUpiId) {
@@ -375,7 +500,6 @@ closeWithdrawBtn.addEventListener("click", () => {
   withdrawModal.classList.add("hidden");
 });
 
-// Save UPI Button Logic
 saveUpiBtn.addEventListener("click", async () => {
   const upiId = upiInput.value.trim();
   if (!upiId.includes("@") || upiId.length < 5) {
@@ -402,7 +526,6 @@ saveUpiBtn.addEventListener("click", async () => {
   }
 });
 
-// Submit Withdrawal Logic
 submitWithdrawBtn.addEventListener("click", async () => {
   if (!userData) return;
   const upiId = upiInput.value.trim();
@@ -435,10 +558,11 @@ submitWithdrawBtn.addEventListener("click", async () => {
   try {
     const userRef = doc(db, "users", currentUser.uid);
 
-    // 1. Create a withdrawal request document
+    // Withdrawal request me ab Player UID aur Username bhi jayega!
     await addDoc(collection(db, "withdrawals"), {
       uid: currentUser.uid,
-      name: userData.name || "Player",
+      playerUid: userData.playerUid || "",
+      username: userData.username || "",
       email: currentUser.email,
       upiId: upiId,
       amount: withdrawAmount,
@@ -448,7 +572,6 @@ submitWithdrawBtn.addEventListener("click", async () => {
       requestedAt: serverTimestamp()
     });
 
-    // 2. Deduct only the requested amount & save UPI ID
     await updateDoc(userRef, {
       walletBalance: increment(-withdrawAmount),
       savedUpiId: upiId,

@@ -3,6 +3,7 @@
   margin: 0;
   padding: 0;
   font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  -webkit-tap-highlight-color: transparent;
 }
 
 body {
@@ -65,12 +66,12 @@ body {
   line-height: 1.5;
 }
 
-/* Header & Wallet */
+/* Header & UID Badge */
 .top-bar {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 16px 20px;
+  padding: 14px 18px;
   background: #1e293b;
   border-bottom: 1px solid #334155;
 }
@@ -78,12 +79,37 @@ body {
 .user-info {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 4px;
 }
 
 #user-name {
+  font-weight: 800;
+  font-size: 16px;
+  color: #f8fafc;
+  letter-spacing: 0.3px;
+}
+
+.uid-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.uid-badge {
+  background: #0f172a;
+  color: #94a3b8;
+  border: 1px solid #334155;
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-size: 11px;
   font-weight: 700;
-  font-size: 15px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.uid-badge:active {
+  background: #334155;
+  color: #fff;
 }
 
 .text-btn {
@@ -91,7 +117,7 @@ body {
   border: none;
   color: #ef4444;
   font-size: 12px;
-  text-align: left;
+  font-weight: 600;
   cursor: pointer;
 }
 
@@ -135,10 +161,10 @@ body {
 
 /* Main Content */
 .main-container {
-  padding: 18px;
+  padding: 16px;
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 16px;
 }
 
 /* Task Card */
@@ -146,14 +172,14 @@ body {
   background: linear-gradient(145deg, #1e293b, #172033);
   border: 1px solid #334155;
   border-radius: 16px;
-  padding: 18px;
+  padding: 16px;
 }
 
 .task-header {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  margin-bottom: 14px;
+  margin-bottom: 12px;
 }
 
 .task-badge {
@@ -227,7 +253,9 @@ body {
   cursor: not-allowed;
 }
 
-/* Game Board - FIXED SIZE SO BOXES NEVER CHANGE SHAPE */
+/* =========================================================
+   GAME BOARD - 100% LOCKED PIXEL SIZE FOR PHONE & PC
+   ========================================================= */
 .game-section {
   background: #1e293b;
   border: 1px solid #334155;
@@ -244,43 +272,63 @@ body {
   font-weight: 600;
   color: #e2e8f0;
   text-align: center;
+  min-height: 22px;
 }
 
 .board {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  grid-template-rows: repeat(3, 1fr); /* Fix: teeno rows hamesha barabar rahengi */
+  grid-template-columns: repeat(3, 86px);
+  grid-template-rows: repeat(3, 86px);
   gap: 10px;
-  width: 280px;
-  height: 280px;
+  width: 278px;
+  height: 278px;
+  min-width: 278px;
+  min-height: 278px;
+  max-width: 278px;
+  max-height: 278px;
+  flex-shrink: 0;
+  justify-content: center;
+  align-content: center;
 }
 
 .cell {
-  width: 100%;
-  height: 100%;
+  position: relative;
+  width: 86px;
+  height: 86px;
+  min-width: 86px;
+  min-height: 86px;
+  max-width: 86px;
+  max-height: 86px;
   background: #0f172a;
   border: 2px solid #334155;
   border-radius: 14px;
+  cursor: pointer;
+  user-select: none;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+/* X aur O ab absolute center me rahenge jisse box ka size kabhi hilega bhi nahi */
+.cell span {
+  position: absolute;
+  inset: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 36px;
-  line-height: 1;
+  font-size: 38px;
   font-weight: 800;
-  cursor: pointer;
-  user-select: none;
-  transition: transform 0.1s, border-color 0.2s;
+  line-height: 1;
 }
 
 .cell:active {
   transform: scale(0.96);
 }
 
-.cell.x {
+.cell.x span {
   color: #38bdf8;
 }
 
-.cell.o {
+.cell.o span {
   color: #f43f5e;
 }
 
@@ -319,7 +367,7 @@ body {
 .modal {
   position: fixed;
   inset: 0;
-  background: rgba(2, 6, 23, 0.85);
+  background: rgba(2, 6, 23, 0.88);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -334,6 +382,24 @@ body {
   max-width: 390px;
   border-radius: 16px;
   padding: 22px;
+}
+
+.uid-preview-box {
+  background: #0f172a;
+  border: 1px solid #3b82f650;
+  padding: 12px;
+  border-radius: 10px;
+  margin-bottom: 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 13px;
+}
+
+.uid-preview-box strong {
+  color: #38bdf8;
+  font-size: 16px;
+  letter-spacing: 1px;
 }
 
 .ad-top-bar {
@@ -388,7 +454,8 @@ body {
 }
 
 #upi-input,
-#withdraw-amount-input {
+#withdraw-amount-input,
+#username-input {
   width: 100%;
   padding: 12px;
   border-radius: 10px;
@@ -421,6 +488,14 @@ body {
   margin-bottom: 10px;
 }
 
+.error-hint {
+  display: block;
+  font-size: 12px;
+  color: #ef4444;
+  min-height: 18px;
+  margin: 6px 0 12px;
+}
+
 .modal-actions {
   display: flex;
   gap: 10px;
@@ -441,4 +516,5 @@ body {
   font-size: 14px;
   box-shadow: 0 10px 25px rgba(0,0,0,0.4);
   z-index: 200;
+  white-space: nowrap;
 }
