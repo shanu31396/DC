@@ -227,7 +227,7 @@ body {
   cursor: not-allowed;
 }
 
-/* Game Board */
+/* Game Board - FIXED SIZE SO BOXES NEVER CHANGE SHAPE */
 .game-section {
   background: #1e293b;
   border: 1px solid #334155;
@@ -249,20 +249,23 @@ body {
 .board {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: repeat(3, 1fr); /* Fix: teeno rows hamesha barabar rahengi */
   gap: 10px;
-  width: 100%;
-  max-width: 290px;
-  aspect-ratio: 1 / 1;
+  width: 280px;
+  height: 280px;
 }
 
 .cell {
+  width: 100%;
+  height: 100%;
   background: #0f172a;
   border: 2px solid #334155;
   border-radius: 14px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 38px;
+  font-size: 36px;
+  line-height: 1;
   font-weight: 800;
   cursor: pointer;
   user-select: none;
@@ -328,7 +331,7 @@ body {
   background: #1e293b;
   border: 1px solid #334155;
   width: 100%;
-  max-width: 380px;
+  max-width: 390px;
   border-radius: 16px;
   padding: 22px;
 }
@@ -367,16 +370,55 @@ body {
   border-radius: 10px;
   margin-bottom: 14px;
   font-size: 14px;
+  border: 1px solid #334155;
 }
 
-#upi-input {
+.input-label {
+  display: block;
+  font-size: 12px;
+  color: #cbd5e1;
+  margin-bottom: 6px;
+  font-weight: 600;
+}
+
+.upi-save-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+#upi-input,
+#withdraw-amount-input {
   width: 100%;
   padding: 12px;
   border-radius: 10px;
   border: 1px solid #475569;
   background: #0f172a;
   color: white;
-  margin-bottom: 16px;
+  font-size: 14px;
+}
+
+#withdraw-amount-input {
+  margin-bottom: 18px;
+}
+
+.save-upi-btn {
+  background: #3b82f6;
+  color: white;
+  border: none;
+  padding: 0 16px;
+  border-radius: 10px;
+  font-weight: 700;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.saved-hint {
+  display: block;
+  font-size: 11px;
+  color: #22c55e;
+  min-height: 16px;
+  margin-bottom: 10px;
 }
 
 .modal-actions {

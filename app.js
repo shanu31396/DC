@@ -20,7 +20,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 // =====================================================
-// 1. APNA FIREBASE CONFIG YAHAN PASTE KAREIN (STEP 3 DEKHEIN)
+// 1. APNA FIREBASE CONFIG YAHAN PASTE KAREIN
 // =====================================================
   const firebaseConfig = {
     apiKey: "AIzaSyA9XkZ8iRyjKETR0sCQ9pFtYjc1aIpszBE",
@@ -64,9 +64,11 @@ const openWithdrawBtn = document.getElementById("open-withdraw-btn");
 const closeWithdrawBtn = document.getElementById("close-withdraw-btn");
 const submitWithdrawBtn = document.getElementById("submit-withdraw-btn");
 const upiInput = document.getElementById("upi-input");
+const saveUpiBtn = document.getElementById("save-upi-btn");
+const upiSavedStatus = document.getElementById("upi-saved-status");
+const withdrawAmountInput = document.getElementById("withdraw-amount-input");
 const toastEl = document.getElementById("toast");
 
-// Private Game State (Inside module closure so console hackers cannot access it)
 let currentUser = null;
 let userData = null;
 let unsubscribeUser = null;
@@ -112,7 +114,6 @@ onAuthStateChanged(auth, async (user) => {
     const userRef = doc(db, "users", user.uid);
     const snap = await getDoc(userRef);
 
-    // Agar naya user hai to database me initial profile banao
     if (!snap.exists()) {
       await setDoc(userRef, {
         name: user.displayName || "Player",
@@ -121,11 +122,11 @@ onAuthStateChanged(auth, async (user) => {
         currentTaskMatches: 0,
         totalMatches: 0,
         tasksCompleted: 0,
+        savedUpiId: "",
         lastActionAt: serverTimestamp()
       });
     }
 
-    // Real-time listener
     if (unsubscribeUser) unsubscribeUser();
     unsubscribeUser = onSnapshot(userRef, (docSnap) => {
       if (docSnap.exists()) {
@@ -157,6 +158,13 @@ function updateDashboardUI() {
   const percentage = Math.min((progress / 100) * 100, 100);
   taskProgressFill.style.width = `${percentage}%`;
 
+  if (userData.savedUpiId) {
+    if (!upiInput.value) upiInput.value = userData.savedUpiId;
+    upiSavedStatus.textContent = `Saved UPI: ${userData.savedUpiId}`;
+  } else {
+    upiSavedStatus.textContent = "";
+  }
+
   if (progress >= 100) {
     claimRewardBtn.disabled = false;
     claimRewardBtn.textContent = "Claim ₹5 Reward Now!";
@@ -172,7 +180,6 @@ function updateDashboardUI() {
 startMatchBtn.addEventListener("click", () => {
   if (isGameActive) return;
 
-  // Agar 100 matches poore ho gaye hain, to pehle claim karne ko bolo
   if (userData && userData.currentTaskMatches >= 100) {
     showToast("Pehle apna ₹5 Task Reward claim karein!");
     return;
@@ -208,7 +215,7 @@ skipAdBtn.addEventListener("click", () => {
 });
 
 // =====================================================
-// 4. TIC TAC TOE ENGINE (Player vs Smart Bot)
+// 4. TIC TAC TOE ENGINE
 // =====================================================
 function beginTicTacToeMatch() {
   boardState = Array(9).fill(null);
@@ -232,7 +239,6 @@ cells.forEach(cell => {
     if (!isGameActive || !isPlayerTurn || boardState[idx] !== null) return;
 
     makeMove(idx, "X");
-
     if (checkGameOver("X")) return;
 
     isPlayerTurn = false;
@@ -266,14 +272,12 @@ function getSmartBotMove() {
 
   if (emptyIndices.length === 0) return null;
 
-  // 1. Try to win if possible
   for (let i of emptyIndices) {
     boardState[i] = "O";
     if (isWinner("O")) { boardState[i] = null; return i; }
     boardState[i] = null;
   }
 
-  // 2. Block player win (70% chance so game stays fun and fast)
   if (Math.random() < 0.7) {
     for (let i of emptyIndices) {
       boardState[i] = "X";
@@ -282,7 +286,6 @@ function getSmartBotMove() {
     }
   }
 
-  // 3. Random valid cell
   return emptyIndices[Math.floor(Math.random() * emptyIndices.length)];
 }
 
@@ -312,7 +315,6 @@ async function finishMatch(statusText) {
   startMatchBtn.disabled = false;
   gameStatusEl.textContent = statusText + " Updating progress...";
 
-  // Anti-cheat check: Minimum 5 moves & realistic match duration
   const durationMs = Date.now() - matchStartTime;
   if (movesCount < 5 || durationMs < 1500) {
     showToast("Invalid match speed detected!");
@@ -334,7 +336,7 @@ async function finishMatch(statusText) {
 }
 
 // =====================================================
-// 5. TASK REWARD CLAIM & INSTANT RESET (₹5 for 100 Matches)
+// 5. TASK REWARD CLAIM & INSTANT RESET
 // =====================================================
 claimRewardBtn.addEventListener("click", async () => {
   if (!userData || userData.currentTaskMatches < 100) return;
@@ -344,7 +346,6 @@ claimRewardBtn.addEventListener("click", async () => {
 
   try {
     const userRef = doc(db, "users", currentUser.uid);
-    // Atomic server update: Adds ₹5 AND resets currentTaskMatches to 0 immediately
     await updateDoc(userRef, {
       walletBalance: increment(5),
       currentTaskMatches: 0,
@@ -360,9 +361,13 @@ claimRewardBtn.addEventListener("click", async () => {
 });
 
 // =====================================================
-// 6. WITHDRAWAL SYSTEM (Minimum ₹10)
+// 6. SAVE UPI ID & CUSTOM AMOUNT WITHDRAWAL
 // =====================================================
 openWithdrawBtn.addEventListener("click", () => {
+  if (userData && userData.savedUpiId) {
+    upiInput.value = userData.savedUpiId;
+  }
+  withdrawAmountInput.value = userData && userData.walletBalance >= 10 ? userData.walletBalance : "";
   withdrawModal.classList.remove("hidden");
 });
 
@@ -370,18 +375,57 @@ closeWithdrawBtn.addEventListener("click", () => {
   withdrawModal.classList.add("hidden");
 });
 
+// Save UPI Button Logic
+saveUpiBtn.addEventListener("click", async () => {
+  const upiId = upiInput.value.trim();
+  if (!upiId.includes("@") || upiId.length < 5) {
+    showToast("Please enter a valid UPI ID (e.g. name@upi)");
+    return;
+  }
+
+  saveUpiBtn.disabled = true;
+  saveUpiBtn.textContent = "Saving...";
+
+  try {
+    const userRef = doc(db, "users", currentUser.uid);
+    await updateDoc(userRef, {
+      savedUpiId: upiId,
+      lastActionAt: serverTimestamp()
+    });
+    showToast("UPI ID Saved Successfully!");
+  } catch (err) {
+    console.error(err);
+    showToast("Could not save UPI ID.");
+  } finally {
+    saveUpiBtn.disabled = false;
+    saveUpiBtn.textContent = "Save";
+  }
+});
+
+// Submit Withdrawal Logic
 submitWithdrawBtn.addEventListener("click", async () => {
   if (!userData) return;
   const upiId = upiInput.value.trim();
   const balance = userData.walletBalance || 0;
-
-  if (balance < 10) {
-    showToast("Minimum withdrawal is ₹10!");
-    return;
-  }
+  const withdrawAmount = Number(withdrawAmountInput.value);
 
   if (!upiId.includes("@") || upiId.length < 5) {
     showToast("Please enter a valid UPI ID!");
+    return;
+  }
+
+  if (!withdrawAmount || withdrawAmount < 10) {
+    showToast("Minimum withdrawal amount is ₹10!");
+    return;
+  }
+
+  if (withdrawAmount > balance) {
+    showToast(`Insufficient balance! You only have ₹${balance}.`);
+    return;
+  }
+
+  if (!Number.isInteger(withdrawAmount)) {
+    showToast("Please enter a whole amount (e.g. 10, 15, 20).");
     return;
   }
 
@@ -391,32 +435,34 @@ submitWithdrawBtn.addEventListener("click", async () => {
   try {
     const userRef = doc(db, "users", currentUser.uid);
 
-    // 1. Create a withdrawal request document for Admin
+    // 1. Create a withdrawal request document
     await addDoc(collection(db, "withdrawals"), {
       uid: currentUser.uid,
+      name: userData.name || "Player",
       email: currentUser.email,
       upiId: upiId,
-      amount: balance,
+      amount: withdrawAmount,
       totalMatchesPlayed: userData.totalMatches,
       tasksCompleted: userData.tasksCompleted,
       status: "pending",
       requestedAt: serverTimestamp()
     });
 
-    // 2. Reset user wallet balance to 0
+    // 2. Deduct only the requested amount & save UPI ID
     await updateDoc(userRef, {
-      walletBalance: 0,
+      walletBalance: increment(-withdrawAmount),
+      savedUpiId: upiId,
       lastActionAt: serverTimestamp()
     });
 
-    upiInput.value = "";
+    withdrawAmountInput.value = "";
     withdrawModal.classList.add("hidden");
-    showToast(`Withdrawal request of ₹${balance} submitted!`);
+    showToast(`Withdrawal request of ₹${withdrawAmount} submitted!`);
   } catch (err) {
     console.error(err);
     showToast("Withdrawal failed: " + err.message);
   } finally {
     submitWithdrawBtn.disabled = false;
-    submitWithdrawBtn.textContent = "Request Withdraw";
+    submitWithdrawBtn.textContent = "Withdraw Now";
   }
 });

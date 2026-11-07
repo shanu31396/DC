@@ -22,7 +22,6 @@
 
   <!-- 2. MAIN GAME DASHBOARD -->
   <div id="app-screen" class="screen hidden">
-    <!-- Top Header -->
     <header class="top-bar">
       <div class="user-info">
         <span id="user-name">Player</span>
@@ -38,7 +37,7 @@
     </header>
 
     <main class="main-container">
-      <!-- Task Card (Auto Resets on Claim) -->
+      <!-- Task Card -->
       <section class="task-card" id="task-card">
         <div class="task-header">
           <div>
@@ -88,7 +87,7 @@
     </main>
   </div>
 
-  <!-- 3. AD OVERLAY MODAL (Har New Game start hone par aayega) -->
+  <!-- 3. AD OVERLAY MODAL -->
   <div id="ad-modal" class="modal hidden">
     <div class="modal-content ad-box">
       <div class="ad-top-bar">
@@ -96,7 +95,6 @@
         <span id="ad-timer-badge">Wait 5s...</span>
       </div>
 
-      <!-- Yahan aap apna AdSense / Adsterra / Monetag ka code laga sakte hain -->
       <div id="ad-slot" class="ad-placeholder">
         <p>Your Ad Network Code Goes Here</p>
         <small>(300x250 Banner / Video Ad)</small>
@@ -108,7 +106,7 @@
     </div>
   </div>
 
-  <!-- 4. WITHDRAW MODAL (Min ₹10) -->
+  <!-- 4. WITHDRAW MODAL (Updated with Save UPI & Amount Box) -->
   <div id="withdraw-modal" class="modal hidden">
     <div class="modal-content">
       <h3>Withdraw Earnings</h3>
@@ -118,11 +116,21 @@
         Available Balance: <strong>₹<span id="modal-balance">0</span></strong>
       </div>
 
-      <input type="text" id="upi-input" placeholder="Enter your UPI ID (e.g. name@upi)" />
+      <!-- UPI ID + Save Button -->
+      <label class="input-label">Your UPI ID</label>
+      <div class="upi-save-row">
+        <input type="text" id="upi-input" placeholder="e.g. mobile@ybl or name@oksbi" />
+        <button id="save-upi-btn" class="save-upi-btn">Save</button>
+      </div>
+      <small id="upi-saved-status" class="saved-hint"></small>
+
+      <!-- Withdraw Amount Input -->
+      <label class="input-label">Amount to Withdraw (₹)</label>
+      <input type="number" id="withdraw-amount-input" min="10" step="1" placeholder="Enter amount (Min ₹10)" />
       
       <div class="modal-actions">
         <button id="close-withdraw-btn" class="secondary-btn">Cancel</button>
-        <button id="submit-withdraw-btn" class="primary-btn">Request Withdraw</button>
+        <button id="submit-withdraw-btn" class="primary-btn">Withdraw Now</button>
       </div>
     </div>
   </div>
@@ -130,7 +138,6 @@
   <!-- Toast Notification -->
   <div id="toast" class="toast hidden"></div>
 
-  <!-- App Logic -->
   <script type="module" src="app.js"></script>
 </body>
 </html>
