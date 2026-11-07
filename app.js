@@ -16,7 +16,10 @@ import {
   updateDoc, 
   addDoc,
   collection,
+  query,
+  where,
   onSnapshot, 
+  writeBatch,
   increment, 
   serverTimestamp 
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
@@ -79,12 +82,26 @@ const upiInput = document.getElementById("upi-input");
 const saveUpiBtn = document.getElementById("save-upi-btn");
 const upiSavedStatus = document.getElementById("upi-saved-status");
 const withdrawAmountInput = document.getElementById("withdraw-amount-input");
+
+const historyModal = document.getElementById("history-modal");
+const openHistoryBtn = document.getElementById("open-history-btn");
+const closeHistoryBtn = document.getElementById("close-history-btn");
+const historyListEl = document.getElementById("history-list");
+
 const toastEl = document.getElementById("toast");
 
 let currentUser = null;
 let userData = null;
 let unsubscribeUser = null;
+let unsubscribeWithdrawals = null;
+let unsubscribeRewards = null;
 let pendingCandidateUid = "";
+
+let userWithdrawals = [];
+let userRewards = [];
+const refundInProgress = new Set();
+
+const THREE_DAYS_MS = 3 * 24 * 60 * 60 * 1000; // 72 Hours in milliseconds
 
 let boardState = Array(9).fill(null);
 let isGameActive = false;
@@ -101,11 +118,11 @@ const WIN_PATTERNS = [
 function showToast(msg) {
   toastEl.textContent = msg;
   toastEl.classList.remove("hidden");
-  setTimeout(() => toastEl.classList.add("hidden"), 3000);
+  setTimeout(() => toastEl.classList.add("hidden"), 3200);
 }
 
 // =====================================================
-// 2. AUTHENTICATION & PROFILE SYNC
+// 2. AUTHENTICATION & REALTIME LISTENERS
 // =====================================================
 googleLoginBtn.addEventListener("click", async () => {
   try {
@@ -118,7 +135,6 @@ googleLoginBtn.addEventListener("click", async () => {
 
 logoutBtn.addEventListener("click", () => signOut(auth));
 
-// Copy Player UID on tap (Like BGMI / Free Fire)
 userUidBadge.addEventListener("click", () => {
   if (userData && userData.playerUid) {
     navigator.clipboard.writeText(userData.playerUid);
@@ -150,13 +166,13 @@ onAuthStateChanged(auth, async (user) => {
       });
     }
 
+    // 1. Listen to User Profile
     if (unsubscribeUser) unsubscribeUser();
     unsubscribeUser = onSnapshot(userRef, async (docSnap) => {
       if (docSnap.exists()) {
         userData = docSnap.data();
         updateDashboardUI();
 
-        // Agar user ka unique username ya playerUid nahi bana hai, to modal dikhao
         if (!userData.username || !userData.playerUid) {
           await openUsernameSetupModal();
         } else {
@@ -164,10 +180,16 @@ onAuthStateChanged(auth, async (user) => {
         }
       }
     });
+
+    // 2. Listen to User Withdrawals & Auto-Refund Engine
+    startTransactionListeners(user.uid);
+
   } else {
     currentUser = null;
     userData = null;
     if (unsubscribeUser) unsubscribeUser();
+    if (unsubscribeWithdrawals) unsubscribeWithdrawals();
+    if (unsubscribeRewards) unsubscribeRewards();
     appScreen.classList.add("hidden");
     usernameModal.classList.add("hidden");
     loginScreen.classList.remove("hidden");
@@ -175,14 +197,197 @@ onAuthStateChanged(auth, async (user) => {
 });
 
 // =====================================================
-// 3. UNIQUE 8-DIGIT UID & USERNAME GENERATOR
+// 3. TRANSACTION HISTORY & 3-DAY AUTO-REFUND ENGINE
+// =====================================================
+function startTransactionListeners(uid) {
+  if (unsubscribeWithdrawals) unsubscribeWithdrawals();
+  if (unsubscribeRewards) unsubscribeRewards();
+
+  const wQuery = query(collection(db, "withdrawals"), where("uid", "==", uid));
+  unsubscribeWithdrawals = onSnapshot(wQuery, (snapshot) => {
+    userWithdrawals = [];
+    snapshot.forEach((docSnap) => {
+      const data = docSnap.data();
+      const item = { id: docSnap.id, ...data };
+      userWithdrawals.push(item);
+
+      // Check if this withdrawal failed OR exceeded 3 days without completion
+      checkAndProcessAutoRefund(item);
+    });
+    renderTransactionHistory();
+  });
+
+  const rQuery = query(collection(db, "transactions"), where("uid", "==", uid));
+  unsubscribeRewards = onSnapshot(rQuery, (snapshot) => {
+    userRewards = [];
+    snapshot.forEach((docSnap) => {
+      userRewards.push({ id: docSnap.id, ...docSnap.data() });
+    });
+    renderTransactionHistory();
+  });
+}
+
+async function checkAndProcessAutoRefund(wItem) {
+  if (!currentUser || wItem.refunded === true) return;
+  if (wItem.status === "completed") return;
+  if (refundInProgress.has(wItem.id)) return;
+
+  const reqTimeMs = wItem.requestedAt?.toMillis ? wItem.requestedAt.toMillis() : 0;
+  const isExpired3Days = reqTimeMs > 0 && (Date.now() - reqTimeMs >= THREE_DAYS_MS);
+  const isMarkedFailed = wItem.status === "failed";
+
+  // Trigger auto-refund if Admin marked it "failed" OR if 3 days (72h) have passed while still processing/pending
+  if (isMarkedFailed || ((wItem.status === "processing" || wItem.status === "pending") && isExpired3Days)) {
+    refundInProgress.add(wItem.id);
+    try {
+      const batch = writeBatch(db);
+      const wRef = doc(db, "withdrawals", wItem.id);
+      const userRef = doc(db, "users", currentUser.uid);
+
+      batch.update(wRef, {
+        status: "failed",
+        refunded: true,
+        failReason: isExpired3Days ? "Timeout (>3 Days) - Auto Refunded" : "Payment Failed - Auto Refunded",
+        refundedAt: serverTimestamp()
+      });
+
+      batch.update(userRef, {
+        walletBalance: increment(Number(wItem.amount)),
+        lastRefundId: wItem.id,
+        lastActionAt: serverTimestamp()
+      });
+
+      await batch.commit();
+      showToast(`↩️ ₹${wItem.amount} Refunded to Wallet (Withdrawal Failed)`);
+    } catch (err) {
+      console.error("Auto-refund check:", err);
+      refundInProgress.delete(wItem.id);
+    }
+  }
+}
+
+function formatDateTime(ts) {
+  if (!ts || !ts.toDate) return "Just now";
+  const d = ts.toDate();
+  return d.toLocaleString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit"
+  });
+}
+
+function renderTransactionHistory() {
+  const combined = [];
+
+  // 1. Add Withdrawals
+  userWithdrawals.forEach((w) => {
+    const timeMs = w.requestedAt?.toMillis ? w.requestedAt.toMillis() : Date.now();
+    combined.push({
+      kind: "withdrawal",
+      timeMs,
+      dateStr: formatDateTime(w.requestedAt),
+      amount: w.amount,
+      upiId: w.upiId,
+      status: w.status || "processing",
+      refunded: w.refunded === true,
+      failReason: w.failReason || "Payment Failed • Refunded to Wallet"
+    });
+  });
+
+  // 2. Add Task Rewards
+  userRewards.forEach((r) => {
+    const timeMs = r.createdAt?.toMillis ? r.createdAt.toMillis() : Date.now();
+    combined.push({
+      kind: "reward",
+      timeMs,
+      dateStr: formatDateTime(r.createdAt),
+      amount: r.amount || 5,
+      taskNumber: r.taskNumber || 1
+    });
+  });
+
+  // Sort newest first
+  combined.sort((a, b) => b.timeMs - a.timeMs);
+
+  if (combined.length === 0) {
+    historyListEl.innerHTML = `<p class="empty-history">No transactions yet. Complete tasks or make a withdrawal!</p>`;
+    return;
+  }
+
+  historyListEl.innerHTML = combined.map((item) => {
+    if (item.kind === "reward") {
+      return `
+        <div class="tx-card">
+          <div class="tx-left">
+            <span class="tx-title">Task #${item.taskNumber} Reward (100 Matches)</span>
+            <span class="tx-meta">${item.dateStr}</span>
+            <span class="tx-badge badge-completed">✅ Credited to Wallet</span>
+          </div>
+          <div class="tx-right amt-plus">+₹${item.amount}</div>
+        </div>
+      `;
+    }
+
+    // Withdrawal Item
+    if (item.status === "completed") {
+      return `
+        <div class="tx-card">
+          <div class="tx-left">
+            <span class="tx-title">Withdraw to ${item.upiId}</span>
+            <span class="tx-meta">${item.dateStr}</span>
+            <span class="tx-badge badge-completed">✅ Completed</span>
+          </div>
+          <div class="tx-right amt-minus">-₹${item.amount}</div>
+        </div>
+      `;
+    } else if (item.status === "failed" || item.refunded) {
+      return `
+        <div class="tx-card">
+          <div class="tx-left">
+            <span class="tx-title">Withdraw to ${item.upiId}</span>
+            <span class="tx-meta">${item.dateStr}</span>
+            <span class="tx-badge badge-failed">❌ Failed • Refunded to Wallet</span>
+          </div>
+          <div class="tx-right amt-refunded">+₹${item.amount} ↩️</div>
+        </div>
+      `;
+    } else {
+      return `
+        <div class="tx-card">
+          <div class="tx-left">
+            <span class="tx-title">Withdraw to ${item.upiId}</span>
+            <span class="tx-meta">${item.dateStr}</span>
+            <span class="tx-badge badge-processing">⏳ Processing (Max 3 Days)</span>
+          </div>
+          <div class="tx-right amt-minus">-₹${item.amount}</div>
+        </div>
+      `;
+    }
+  }).join("");
+}
+
+// Open & Close Transaction History Modal when clicking Wallet
+openHistoryBtn.addEventListener("click", () => {
+  // Also re-verify any 3-day expired withdrawals when opening history
+  userWithdrawals.forEach(w => checkAndProcessAutoRefund(w));
+  renderTransactionHistory();
+  historyModal.classList.remove("hidden");
+});
+
+closeHistoryBtn.addEventListener("click", () => {
+  historyModal.classList.add("hidden");
+});
+
+// =====================================================
+// 4. UNIQUE 8-DIGIT UID & USERNAME GENERATOR
 // =====================================================
 async function generateUnique8DigitUid() {
   if (userData && userData.playerUid) return userData.playerUid;
   if (pendingCandidateUid) return pendingCandidateUid;
 
   while (true) {
-    // Generates an 8-digit UID (e.g. 10482951 to 99999999)
     const candidate = String(Math.floor(10000000 + Math.random() * 90000000));
     const uidSnap = await getDoc(doc(db, "uids", candidate));
     if (!uidSnap.exists()) {
@@ -203,7 +408,6 @@ saveUsernameBtn.addEventListener("click", async () => {
   const lowerUsername = rawUsername.toLowerCase();
   usernameError.textContent = "";
 
-  // Validation: 3-15 chars, letters, numbers, underscore only
   const validRegex = /^[a-zA-Z0-9_]{3,15}$/;
   if (!validRegex.test(rawUsername)) {
     usernameError.textContent = "Use 3-15 characters (only letters, numbers & _)";
@@ -228,7 +432,6 @@ saveUsernameBtn.addEventListener("click", async () => {
     const uidRef = doc(db, "uids", finalUid);
     const userRef = doc(db, "users", currentUser.uid);
 
-    // 1. Reserve Unique Username
     await setDoc(usernameRef, {
       uid: currentUser.uid,
       playerUid: finalUid,
@@ -236,7 +439,6 @@ saveUsernameBtn.addEventListener("click", async () => {
       createdAt: serverTimestamp()
     });
 
-    // 2. Reserve Unique 8-Digit Player UID (So you can search/target by UID anytime)
     await setDoc(uidRef, {
       uid: currentUser.uid,
       playerUid: finalUid,
@@ -245,7 +447,6 @@ saveUsernameBtn.addEventListener("click", async () => {
       createdAt: serverTimestamp()
     });
 
-    // 3. Save in User Profile
     await updateDoc(userRef, {
       username: rawUsername,
       playerUid: finalUid,
@@ -298,7 +499,7 @@ function updateDashboardUI() {
 }
 
 // =====================================================
-// 4. AD SYSTEM & NEW MATCH START
+// 5. AD SYSTEM & NEW MATCH START
 // =====================================================
 startMatchBtn.addEventListener("click", () => {
   if (isGameActive) return;
@@ -338,7 +539,7 @@ skipAdBtn.addEventListener("click", () => {
 });
 
 // =====================================================
-// 5. TIC TAC TOE ENGINE
+// 6. TIC TAC TOE ENGINE
 // =====================================================
 function beginTicTacToeMatch() {
   boardState = Array(9).fill(null);
@@ -461,7 +662,7 @@ async function finishMatch(statusText) {
 }
 
 // =====================================================
-// 6. TASK REWARD CLAIM & INSTANT RESET
+// 7. TASK REWARD CLAIM & TRANSACTION RECORD
 // =====================================================
 claimRewardBtn.addEventListener("click", async () => {
   if (!userData || userData.currentTaskMatches < 100) return;
@@ -470,12 +671,25 @@ claimRewardBtn.addEventListener("click", async () => {
   claimRewardBtn.textContent = "Claiming ₹5...";
 
   try {
+    const nextTaskNum = (userData.tasksCompleted || 0) + 1;
     const userRef = doc(db, "users", currentUser.uid);
+
     await updateDoc(userRef, {
       walletBalance: increment(5),
       currentTaskMatches: 0,
       tasksCompleted: increment(1),
       lastActionAt: serverTimestamp()
+    });
+
+    // Save in transaction history
+    await addDoc(collection(db, "transactions"), {
+      uid: currentUser.uid,
+      playerUid: userData.playerUid || "",
+      username: userData.username || "",
+      type: "reward",
+      taskNumber: nextTaskNum,
+      amount: 5,
+      createdAt: serverTimestamp()
     });
 
     showToast("🎉 ₹5 Added to Wallet! New Task Started (0/100)");
@@ -486,7 +700,7 @@ claimRewardBtn.addEventListener("click", async () => {
 });
 
 // =====================================================
-// 7. SAVE UPI ID & CUSTOM AMOUNT WITHDRAWAL
+// 8. SAVE UPI ID & CUSTOM AMOUNT WITHDRAWAL
 // =====================================================
 openWithdrawBtn.addEventListener("click", () => {
   if (userData && userData.savedUpiId) {
@@ -558,7 +772,7 @@ submitWithdrawBtn.addEventListener("click", async () => {
   try {
     const userRef = doc(db, "users", currentUser.uid);
 
-    // Withdrawal request me ab Player UID aur Username bhi jayega!
+    // 1. Create withdrawal document with status: "processing" & refunded: false
     await addDoc(collection(db, "withdrawals"), {
       uid: currentUser.uid,
       playerUid: userData.playerUid || "",
@@ -568,10 +782,12 @@ submitWithdrawBtn.addEventListener("click", async () => {
       amount: withdrawAmount,
       totalMatchesPlayed: userData.totalMatches,
       tasksCompleted: userData.tasksCompleted,
-      status: "pending",
+      status: "processing",
+      refunded: false,
       requestedAt: serverTimestamp()
     });
 
+    // 2. Deduct amount from wallet
     await updateDoc(userRef, {
       walletBalance: increment(-withdrawAmount),
       savedUpiId: upiId,
@@ -580,7 +796,7 @@ submitWithdrawBtn.addEventListener("click", async () => {
 
     withdrawAmountInput.value = "";
     withdrawModal.classList.add("hidden");
-    showToast(`Withdrawal request of ₹${withdrawAmount} submitted!`);
+    showToast(`Withdrawal of ₹${withdrawAmount} is Processing!`);
   } catch (err) {
     console.error(err);
     showToast("Withdrawal failed: " + err.message);

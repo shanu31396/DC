@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>TicTac - Play & Earn</title>
-  <link rel="stylesheet" href="style.css?v=3" />
+  <link rel="stylesheet" href="style.css?v=4" />
 </head>
 <body>
 
@@ -32,10 +32,12 @@
       </div>
 
       <div class="wallet-box">
-        <div class="balance-info">
-          <span class="label">Wallet</span>
+        <!-- Clicking on Wallet Balance opens Transaction History -->
+        <div id="open-history-btn" class="balance-info" title="Click to view Transaction History">
+          <span class="label">Wallet ▾</span>
           <span class="amount">₹<span id="wallet-balance">0</span></span>
         </div>
+        <!-- Clicking on Withdraw opens Withdraw Modal -->
         <button id="open-withdraw-btn" class="withdraw-btn">Withdraw</button>
       </div>
     </header>
@@ -91,7 +93,7 @@
     </main>
   </div>
 
-  <!-- 3. UNIQUE USERNAME & UID SETUP MODAL (Free Fire / BGMI Style) -->
+  <!-- 3. UNIQUE USERNAME & UID SETUP MODAL -->
   <div id="username-modal" class="modal hidden">
     <div class="modal-content">
       <h3>Create Gamer Profile</h3>
@@ -103,7 +105,7 @@
       </div>
 
       <label class="input-label">Unique Username (3-15 chars, letters/numbers/_)</label>
-      <input type="text" id="username-input" maxlength="15" placeholder="Username" />
+      <input type="text" id="username-input" maxlength="15" placeholder="e.g. ShanuOP or suryam_07" />
       <small id="username-error" class="error-hint"></small>
 
       <button id="save-username-btn" class="primary-btn full-width">
@@ -135,7 +137,9 @@
   <div id="withdraw-modal" class="modal hidden">
     <div class="modal-content">
       <h3>Withdraw Earnings</h3>
-      <p class="sub-text">Minimum withdrawal amount is <strong>₹10</strong>.</p>
+      <p class="sub-text">
+        Minimum withdrawal is <strong>₹10</strong>. Money is usually sent quickly (Max wait: <strong>3 Days</strong>). If any error occurs or 3 days pass, the amount is automatically refunded to your wallet.
+      </p>
       
       <div class="withdraw-summary">
         Available Balance: <strong>₹<span id="modal-balance">0</span></strong>
@@ -158,9 +162,26 @@
     </div>
   </div>
 
+  <!-- 6. TRANSACTION HISTORY MODAL (Opens when clicking Wallet) -->
+  <div id="history-modal" class="modal hidden">
+    <div class="modal-content history-modal-box">
+      <div class="history-header">
+        <div>
+          <h3>Transaction History</h3>
+          <small class="history-sub">Failed or >3 days pending withdrawals auto-refund</small>
+        </div>
+        <button id="close-history-btn" class="close-icon-btn">✕</button>
+      </div>
+
+      <div id="history-list" class="history-list">
+        <p class="empty-history">Loading transactions...</p>
+      </div>
+    </div>
+  </div>
+
   <!-- Toast Notification -->
   <div id="toast" class="toast hidden"></div>
 
-  <script type="module" src="app.js?v=3"></script>
+  <script type="module" src="app.js?v=4"></script>
 </body>
 </html>

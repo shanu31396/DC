@@ -124,9 +124,9 @@ body {
 .wallet-box {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   background: #0f172a;
-  padding: 6px 10px 6px 14px;
+  padding: 6px 8px 6px 12px;
   border-radius: 12px;
   border: 1px solid #334155;
 }
@@ -134,12 +134,22 @@ body {
 .balance-info {
   display: flex;
   flex-direction: column;
+  cursor: pointer;
+  padding: 2px 6px 2px 2px;
+  border-radius: 8px;
+  transition: background 0.15s;
+}
+
+.balance-info:hover,
+.balance-info:active {
+  background: #1e293b;
 }
 
 .balance-info .label {
   font-size: 10px;
-  color: #94a3b8;
+  color: #38bdf8;
   text-transform: uppercase;
+  font-weight: 700;
 }
 
 .balance-info .amount {
@@ -308,7 +318,6 @@ body {
   flex-shrink: 0;
 }
 
-/* X aur O ab absolute center me rahenge jisse box ka size kabhi hilega bhi nahi */
 .cell span {
   position: absolute;
   inset: 0;
@@ -371,7 +380,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 20px;
+  padding: 18px;
   z-index: 100;
 }
 
@@ -379,9 +388,9 @@ body {
   background: #1e293b;
   border: 1px solid #334155;
   width: 100%;
-  max-width: 390px;
+  max-width: 400px;
   border-radius: 16px;
-  padding: 22px;
+  padding: 20px;
 }
 
 .uid-preview-box {
@@ -425,9 +434,10 @@ body {
 }
 
 .sub-text {
-  font-size: 13px;
+  font-size: 12.5px;
   color: #94a3b8;
   margin: 6px 0 14px;
+  line-height: 1.45;
 }
 
 .withdraw-summary {
@@ -500,6 +510,130 @@ body {
   display: flex;
   gap: 10px;
   justify-content: flex-end;
+}
+
+/* =========================================================
+   TRANSACTION HISTORY MODAL STYLES
+   ========================================================= */
+.history-modal-box {
+  max-height: 82vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.history-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #334155;
+  margin-bottom: 12px;
+}
+
+.history-sub {
+  color: #94a3b8;
+  font-size: 11px;
+}
+
+.close-icon-btn {
+  background: #0f172a;
+  color: #cbd5e1;
+  border: 1px solid #334155;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.history-list {
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-right: 4px;
+}
+
+.empty-history {
+  text-align: center;
+  color: #64748b;
+  padding: 30px 10px;
+  font-size: 14px;
+}
+
+.tx-card {
+  background: #0f172a;
+  border: 1px solid #334155;
+  border-radius: 12px;
+  padding: 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+}
+
+.tx-left {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.tx-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: #f8fafc;
+}
+
+.tx-meta {
+  font-size: 11px;
+  color: #94a3b8;
+}
+
+.tx-badge {
+  display: inline-block;
+  width: fit-content;
+  font-size: 10.5px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 6px;
+  margin-top: 2px;
+}
+
+.badge-processing {
+  background: #f59e0b20;
+  color: #fbbf24;
+  border: 1px solid #f59e0b40;
+}
+
+.badge-completed {
+  background: #22c55e20;
+  color: #4ade80;
+  border: 1px solid #22c55e40;
+}
+
+.badge-failed {
+  background: #ef444420;
+  color: #f87171;
+  border: 1px solid #ef444440;
+}
+
+.tx-right {
+  text-align: right;
+  font-weight: 800;
+  font-size: 15px;
+  white-space: nowrap;
+}
+
+.amt-plus {
+  color: #22c55e;
+}
+
+.amt-minus {
+  color: #f8fafc;
+}
+
+.amt-refunded {
+  color: #38bdf8;
 }
 
 /* Toast */
